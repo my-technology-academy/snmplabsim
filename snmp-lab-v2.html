@@ -1,0 +1,1691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SNMP Lab Simulator — CREST CPSA Module D | Cyber Academy</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700;800&family=Hanken+Grotesk:wght@400;500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --orange: #d95718;
+  --white:  #ffffff;
+  --dark:   #1d221f;
+  --black:  #000000;
+  --bg:     #080a09;
+  --bg2:    #0d110e;
+  --bg3:    #111512;
+  --border: #1e2620;
+  --muted:  #4a5a50;
+  --text:   #c5d0c8;
+  --green:  #3ddc84;
+  --blue:   #7dd3fc;
+  --red:    #f87171;
+  --amber:  #fbbf24;
+  --mono:   'Share Tech Mono', 'Courier New', monospace;
+  --head:   'Barlow Semi Condensed', Arial, sans-serif;
+  --body:   'Hanken Grotesk', Arial, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--black); font-family: var(--body); color: var(--text); overflow: hidden; }
+
+/* scanlines */
+body::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 9999;
+  background: repeating-linear-gradient(transparent 0, transparent 3px, rgba(0,0,0,.05) 3px, rgba(0,0,0,.05) 4px);
+}
+
+/* ═══ LAYOUT ═══ */
+.app {
+  display: grid;
+  grid-template-columns: 230px 1fr 290px;
+  grid-template-rows: 52px 1fr 26px;
+  grid-template-areas: "nav nav nav" "side term intel" "bar bar bar";
+  height: 100vh;
+}
+
+/* ═══ HEADER ═══ */
+nav {
+  grid-area: nav;
+  background: var(--bg2);
+  border-bottom: 2px solid var(--orange);
+  display: flex; align-items: center; gap: 16px;
+  padding: 0 18px;
+}
+.logo { display: flex; align-items: baseline; font-family: var(--head); font-weight: 800; font-size: 17px; letter-spacing: 3px; user-select: none; }
+.lc { color: var(--orange); }
+.la { color: var(--white); }
+.lg { width: 8px; }
+.div { width: 1px; height: 26px; background: var(--border); }
+.mod { font-family: var(--head); font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+.mod span { color: var(--orange); }
+.hright { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+.badge { font-family: var(--head); font-size: 10px; font-weight: 700; letter-spacing: 2px; padding: 3px 10px; border: 1px solid var(--orange); color: var(--orange); text-transform: uppercase; }
+.live { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px; color: var(--green); }
+.ldot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); animation: blink 2s ease-in-out infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* ═══ SIDEBAR ═══ */
+aside {
+  grid-area: side;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  overflow-y: auto; display: flex; flex-direction: column;
+}
+aside::-webkit-scrollbar { width: 3px; }
+aside::-webkit-scrollbar-thumb { background: var(--border); }
+
+.slabel {
+  padding: 9px 13px 5px;
+  font-family: var(--head); font-size: 9px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+
+/* targets */
+.tgt {
+  padding: 9px 13px; border-bottom: 1px solid var(--border);
+  cursor: pointer; position: relative; transition: background .1s;
+}
+.tgt:hover { background: rgba(217,87,24,.05); }
+.tgt.active { background: rgba(217,87,24,.08); }
+.tgt.active::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--orange); }
+.tip  { font-family: var(--mono); font-size: 12px; color: var(--blue); margin-bottom: 2px; }
+.tname { font-size: 11px; color: var(--white); font-weight: 500; margin-bottom: 1px; }
+.ttype { font-size: 10px; color: var(--muted); margin-bottom: 4px; }
+.tags { display: flex; gap: 4px; flex-wrap: wrap; }
+.tag { font-family: var(--head); font-size: 9px; font-weight: 700; letter-spacing: 1px; padding: 1px 5px; border: 1px solid; text-transform: uppercase; }
+.ts { color: var(--orange); border-color: rgba(217,87,24,.45); }
+.tt { color: var(--red);    border-color: rgba(248,113,113,.4); }
+.th { color: var(--blue);   border-color: rgba(125,211,252,.35); }
+.tf { color: var(--amber);  border-color: rgba(251,191,36,.4); }
+
+/* commands */
+.ci { padding: 7px 13px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background .1s; }
+.ci:hover { background: rgba(217,87,24,.05); }
+.ci:hover .cn { color: var(--orange); }
+.cn { font-family: var(--mono); font-size: 11px; color: var(--blue); margin-bottom: 2px; transition: color .1s; }
+.cd { font-size: 10px; color: var(--muted); }
+
+/* progress */
+.prog { padding: 10px 13px; border-top: 1px solid var(--border); margin-top: auto; }
+.ptitle { font-family: var(--head); font-size: 9px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 7px; }
+.pi { display: flex; align-items: center; gap: 7px; padding: 3px 0; font-size: 10px; color: var(--muted); transition: color .4s; }
+.pi.done { color: var(--green); }
+.pdot { width: 6px; height: 6px; border-radius: 50%; background: var(--border); flex-shrink: 0; transition: all .4s; }
+.pi.done .pdot { background: var(--green); box-shadow: 0 0 5px var(--green); }
+
+/* ═══ TERMINAL ═══ */
+.term {
+  grid-area: term;
+  display: flex; flex-direction: column;
+  background: var(--bg); min-height: 0;
+}
+.tbar {
+  background: var(--bg3); border-bottom: 1px solid var(--border);
+  padding: 7px 14px; display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+}
+.dots { display: flex; gap: 5px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; }
+.dr { background: #ff5f57; } .dy { background: #febc2e; } .dg { background: #28c840; }
+.ttitle { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-left: 4px; }
+.ttitle b { color: var(--text); font-weight: normal; }
+
+#out {
+  flex: 1; overflow-y: auto; padding: 14px 18px;
+  font-family: var(--mono); font-size: 12.5px; line-height: 1.75;
+  white-space: pre-wrap; word-break: break-all;
+  min-height: 0;
+}
+#out::-webkit-scrollbar { width: 3px; }
+#out::-webkit-scrollbar-thumb { background: var(--border); }
+
+.inp-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 18px; border-top: 1px solid var(--border); flex-shrink: 0;
+}
+.ps { font-family: var(--mono); font-size: 12.5px; color: var(--orange); white-space: nowrap; user-select: none; }
+#inp {
+  flex: 1; background: transparent; border: none; outline: none;
+  font-family: var(--mono); font-size: 12.5px; color: var(--white);
+  caret-color: var(--orange);
+}
+
+/* ═══ INTEL ═══ */
+.intel {
+  grid-area: intel;
+  background: var(--bg2); border-left: 1px solid var(--border);
+  overflow-y: auto; display: flex; flex-direction: column; min-height: 0;
+}
+.intel::-webkit-scrollbar { width: 3px; }
+.intel::-webkit-scrollbar-thumb { background: var(--border); }
+.ihdr {
+  padding: 11px 13px 9px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  font-family: var(--head); font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--orange);
+}
+.iempty { padding: 24px 14px; text-align: center; font-size: 11px; color: var(--muted); line-height: 1.9; }
+.iempty code { font-family: var(--mono); color: var(--blue); font-size: 11px; }
+
+.icard { margin: 9px; border: 1px solid var(--border); animation: fadeup .2s ease; }
+@keyframes fadeup { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:none} }
+.icard-h {
+  padding: 6px 11px; font-family: var(--head); font-size: 10px; font-weight: 700;
+  letter-spacing: 1px; text-transform: uppercase; border-bottom: 1px solid;
+}
+.h-or { background:rgba(217,87,24,.12); color:var(--orange); border-color:rgba(217,87,24,.25); }
+.h-re { background:rgba(248,113,113,.1); color:var(--red);    border-color:rgba(248,113,113,.2); }
+.h-gr { background:rgba(61,220,132,.1);  color:var(--green);  border-color:rgba(61,220,132,.2); }
+.h-bl { background:rgba(125,211,252,.1); color:var(--blue);   border-color:rgba(125,211,252,.2); }
+.h-am { background:rgba(251,191,36,.1);  color:var(--amber);  border-color:rgba(251,191,36,.2); }
+.icard-b { padding: 9px 11px; font-size: 11px; line-height: 1.8; color: var(--text); font-family: var(--body); }
+.icard-b strong { color: var(--orange); font-weight: 600; }
+.icard-b code { font-family: var(--mono); font-size: 10px; color: var(--blue); background: rgba(0,0,0,.4); padding: 1px 4px; }
+.irow { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid var(--border); font-size: 11px; }
+.irow:last-child { border: none; }
+.ik { color: var(--muted); }
+.iv { font-family: var(--mono); font-size: 11px; }
+.vg { color: var(--green); } .va { color: var(--amber); } .vr { color: var(--red); } .vb { color: var(--blue); } .vo { color: var(--orange); }
+
+.exambox { margin: 9px; border: 1px solid rgba(217,87,24,.3); }
+.exam-h { background:rgba(217,87,24,.1); padding:6px 11px; font-family:var(--head); font-size:10px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:var(--orange); border-bottom:1px solid rgba(217,87,24,.25); }
+.exam-b { padding:9px 11px; font-size:11px; line-height:1.8; color:var(--text); font-family:var(--body); }
+.exam-b strong { color:var(--amber); font-weight:600; }
+.exam-b code { font-family:var(--mono); font-size:10px; color:var(--blue); background:rgba(0,0,0,.4); padding:1px 4px; }
+
+/* ═══ STATUS BAR ═══ */
+.bar {
+  grid-area: bar; background: var(--orange);
+  display: flex; align-items: center; padding: 0 16px; gap: 20px;
+}
+.sbi { display: flex; align-items: center; gap: 5px; font-family: var(--head); font-size: 9px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+.sbl { color: rgba(0,0,0,.5); }
+.sbv { color: var(--black); font-weight: 800; }
+
+/* colour helpers for terminal output lines */
+.ok  { color: var(--green); }
+.err { color: var(--red); }
+.inf { color: var(--orange); }
+.val { color: var(--blue); }
+.dim { color: var(--muted); }
+.wrn { color: var(--amber); }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- NAV -->
+  <nav>
+    <div class="logo"><span class="lc">CYBER</span><span class="lg"></span><span class="la">ACADEMY</span></div>
+    <div class="div"></div>
+    <div class="mod">CREST CPSA — <span>Module D</span> — SNMP Lab</div>
+    <div class="hright">
+      <div class="badge">CPSA</div>
+      <div class="live"><div class="ldot"></div>NETWORK LIVE</div>
+    </div>
+  </nav>
+
+  <!-- SIDEBAR -->
+  <aside>
+    <div class="slabel">Target Network</div>
+    <div class="tgt active" data-ip="192.168.1.1" onclick="switchTarget(this)">
+      <div class="tip">192.168.1.1</div><div class="tname">CORE-RTR-01</div>
+      <div class="ttype">Cisco IOS Core Router</div>
+      <div class="tags"><span class="tag ts">SNMP v2c</span><span class="tag tt">Telnet</span></div>
+    </div>
+    <div class="tgt" data-ip="192.168.1.2" onclick="switchTarget(this)">
+      <div class="tip">192.168.1.2</div><div class="tname">ACCESS-SW-01</div>
+      <div class="ttype">Cisco Catalyst 2960</div>
+      <div class="tags"><span class="tag ts">SNMP v1</span></div>
+    </div>
+    <div class="tgt" data-ip="10.10.0.1" onclick="switchTarget(this)">
+      <div class="tip">10.10.0.1</div><div class="tname">BACKUP-RTR-01</div>
+      <div class="ttype">Legacy Cisco — Backup Net</div>
+      <div class="tags"><span class="tag ts">SNMP v2c</span><span class="tag tt">Telnet</span><span class="tag tf">TFTP</span></div>
+    </div>
+    <div class="tgt" data-ip="192.168.1.50" onclick="switchTarget(this)">
+      <div class="tip">192.168.1.50</div><div class="tname">TFTP-SRV-01</div>
+      <div class="ttype">Linux — No Auth</div>
+      <div class="tags"><span class="tag tf">TFTP</span></div>
+    </div>
+    <div class="tgt" data-ip="192.168.10.5" onclick="switchTarget(this)">
+      <div class="tip">192.168.10.5</div><div class="tname">FW-01</div>
+      <div class="ttype">FortiGate — HTTP Mgmt</div>
+      <div class="tags"><span class="tag th">HTTP Mgmt</span></div>
+    </div>
+
+    <div class="slabel" style="margin-top:4px">Discovery</div>
+    <div class="ci" onclick="fill('nmap -sU -p161 192.168.1.1')"><div class="cn">nmap -sU -p161</div><div class="cd">UDP scan — confirm SNMP port</div></div>
+    <div class="ci" onclick="fill('onesixtyone -c communities.txt 192.168.1.1')"><div class="cn">onesixtyone</div><div class="cd">Brute-force community strings</div></div>
+    <div class="ci" onclick="fill('braa public@192.168.1.1:.1.3.6.*')"><div class="cn">braa</div><div class="cd">Fast mass SNMP scanner</div></div>
+    <div class="ci" onclick="fill('snmp-check 192.168.1.1 -c public')"><div class="cn">snmp-check</div><div class="cd">Automated SNMP audit</div></div>
+    <div class="ci" onclick="fill('snmp-enum 192.168.1.1 public')"><div class="cn">snmp-enum</div><div class="cd">Perl-based full enumerator</div></div>
+
+    <div class="slabel">Enumeration</div>
+    <div class="ci" onclick="fill('snmpwalk -v2c -c public 192.168.1.1')"><div class="cn">snmpwalk [full]</div><div class="cd">Walk the full MIB tree</div></div>
+    <div class="ci" onclick="fill('snmpbulkwalk -v2c -c public 192.168.1.1')"><div class="cn">snmpbulkwalk</div><div class="cd">Fast bulk enumeration (GETBULK)</div></div>
+    <div class="ci" onclick="fill('snmpwalk -v2c -c public 192.168.1.1 ipRouteTable')"><div class="cn">snmpwalk [routes]</div><div class="cd">Extract routing table</div></div>
+    <div class="ci" onclick="fill('snmpwalk -v2c -c public 192.168.1.1 ifTable')"><div class="cn">snmpwalk [interfaces]</div><div class="cd">Enumerate all interfaces</div></div>
+    <div class="ci" onclick="fill('snmpwalk -v2c -c public 192.168.1.1 ipNetToMediaTable')"><div class="cn">snmpwalk [arp]</div><div class="cd">Dump ARP cache</div></div>
+    <div class="ci" onclick="fill('snmpwalk -v2c -c public 192.168.1.1 hrSWRunName')"><div class="cn">snmpwalk [processes]</div><div class="cd">List running processes</div></div>
+    <div class="ci" onclick="fill('snmpget -v2c -c public 192.168.1.1 sysDescr.0')"><div class="cn">snmpget</div><div class="cd">Get a specific OID value</div></div>
+
+    <div class="slabel">Exploitation</div>
+    <div class="ci" onclick="fill('snmpset -v2c -c private 192.168.1.1 sysLocation.0 s &quot;Pwned&quot;')"><div class="cn">snmpset</div><div class="cd">Write via private community</div></div>
+    <div class="ci" onclick="fill('msfconsole -x &quot;use auxiliary/scanner/snmp/snmp_enum; set RHOSTS 192.168.1.1; run&quot;')"><div class="cn">msfconsole [snmp_enum]</div><div class="cd">Metasploit SNMP enumerator</div></div>
+    <div class="ci" onclick="fill('msfconsole -x &quot;use auxiliary/scanner/snmp/snmp_login; set RHOSTS 192.168.1.1; run&quot;')"><div class="cn">msfconsole [snmp_login]</div><div class="cd">Metasploit community brute-force</div></div>
+
+    <div class="slabel">Other</div>
+    <div class="ci" onclick="fill('tftp 192.168.1.50')"><div class="cn">tftp</div><div class="cd">Connect to TFTP server</div></div>
+    <div class="ci" onclick="fill('help')"><div class="cn">help</div><div class="cd">Show all commands</div></div>
+
+    <div class="prog">
+      <div class="ptitle">Engagement Progress</div>
+      <div class="pi" id="pr-disc"><div class="pdot"></div>Host Discovery</div>
+      <div class="pi" id="pr-comm"><div class="pdot"></div>Community Strings</div>
+      <div class="pi" id="pr-enum"><div class="pdot"></div>SNMP Enumeration</div>
+      <div class="pi" id="pr-topo"><div class="pdot"></div>Topology Mapped</div>
+      <div class="pi" id="pr-conf"><div class="pdot"></div>Config Extracted</div>
+    </div>
+  </aside>
+
+  <!-- TERMINAL -->
+  <div class="term">
+    <div class="tbar">
+      <div class="dots"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div></div>
+      <div class="ttitle">root@kali:~# — <b>SNMP Lab Simulator v2.0 | Cyber Academy CREST CPSA</b></div>
+    </div>
+    <div id="out" onclick="document.getElementById('inp').focus()"></div>
+    <div class="inp-row">
+      <span class="ps">root@kali:~#</span>
+      <input id="inp" type="text" autocomplete="off" spellcheck="false" placeholder="type a command and press Enter...">
+    </div>
+  </div>
+
+  <!-- INTEL -->
+  <div class="intel">
+    <div class="ihdr">⬡ Offensive Intel</div>
+    <div id="intel-body">
+      <div class="iempty">
+        Run a command to begin.<br><br>
+        Offensive intel and exam notes<br>appear here after each command.<br><br>
+        ─────────────────<br><br>
+        Start here:<br>
+        <code>onesixtyone</code> → find strings<br>
+        <code>snmpwalk</code> → enumerate<br>
+        <code>tftp</code> → pull configs
+      </div>
+    </div>
+    <div class="exambox" id="exambox" style="display:none">
+      <div class="exam-h">◈ Exam Relevance — CREST CPSA</div>
+      <div class="exam-b" id="exam-body"></div>
+    </div>
+  </div>
+
+  <!-- STATUS BAR -->
+  <div class="bar">
+    <div class="sbi"><span class="sbl">Target</span><span class="sbv" id="sb-tgt">192.168.1.1</span></div>
+    <div class="sbi"><span class="sbl">Commands</span><span class="sbv" id="sb-cmds">0</span></div>
+    <div class="sbi"><span class="sbl">Hosts</span><span class="sbv" id="sb-hosts">0</span></div>
+    <div class="sbi"><span class="sbl">Strings Found</span><span class="sbv" id="sb-str">0</span></div>
+    <div class="sbi"><span class="sbl">Phase</span><span class="sbv" id="sb-phase">RECON</span></div>
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//  CYBER ACADEMY — CREST CPSA Module D — SNMP Lab Simulator v2
+// ═══════════════════════════════════════════════════════════════════
+
+// ── STATE ──────────────────────────────────────────────────────────
+var STATE = {
+  target: '192.168.1.1',
+  cmdCount: 0,
+  hosts: {},
+  strings: {},
+  history: [],
+  histIdx: -1,
+  progress: { disc:false, comm:false, enum:false, topo:false, conf:false }
+};
+
+// ── NETWORK ────────────────────────────────────────────────────────
+var NET = {
+  '192.168.1.1': {
+    name:'CORE-RTR-01', os:'Cisco IOS 15.2(4)M7',
+    comm:['public','private'], ver:'v2c',
+    desc:'Cisco IOS Software, Version 15.2(4)M7, RELEASE SOFTWARE (fc4)',
+    uptime:'47 days, 13:22:08', contact:'netadmin@corp.internal',
+    loc:'Server Room A — Rack 3, Unit 12',
+    ifaces:[
+      {i:1,name:'GigabitEthernet0/0',ip:'192.168.1.1', mac:'aa:bb:cc:11:22:01',st:'up'},
+      {i:2,name:'GigabitEthernet0/1',ip:'10.10.0.254', mac:'aa:bb:cc:11:22:02',st:'up'},
+      {i:3,name:'GigabitEthernet0/2',ip:'172.16.0.1',  mac:'aa:bb:cc:11:22:03',st:'up'},
+      {i:4,name:'Loopback0',         ip:'10.255.1.1',  mac:'N/A',              st:'up'}
+    ],
+    routes:[
+      {dest:'0.0.0.0',      mask:'0.0.0.0',     next:'192.168.1.254',iface:'GigabitEthernet0/0',m:1},
+      {dest:'10.10.0.0',    mask:'255.255.255.0',next:'direct',       iface:'GigabitEthernet0/1',m:0},
+      {dest:'172.16.0.0',   mask:'255.255.0.0',  next:'direct',       iface:'GigabitEthernet0/2',m:0},
+      {dest:'10.20.0.0',    mask:'255.255.255.0',next:'10.10.0.1',    iface:'GigabitEthernet0/1',m:1},
+      {dest:'10.30.0.0',    mask:'255.255.255.0',next:'172.16.0.2',   iface:'GigabitEthernet0/2',m:1},
+      {dest:'192.168.99.0', mask:'255.255.255.0',next:'10.10.0.1',    iface:'GigabitEthernet0/1',m:2}
+    ],
+    arp:[
+      {ip:'192.168.1.2', mac:'aa:bb:cc:22:33:01',iface:'GigabitEthernet0/0'},
+      {ip:'192.168.1.10',mac:'aa:bb:cc:22:33:02',iface:'GigabitEthernet0/0'},
+      {ip:'192.168.1.50',mac:'aa:bb:cc:22:33:04',iface:'GigabitEthernet0/0'},
+      {ip:'10.10.0.1',   mac:'dd:ee:ff:44:55:01',iface:'GigabitEthernet0/1'},
+      {ip:'10.10.0.5',   mac:'dd:ee:ff:44:55:02',iface:'GigabitEthernet0/1'},
+      {ip:'172.16.0.2',  mac:'cc:dd:ee:55:66:01',iface:'GigabitEthernet0/2'}
+    ],
+    procs:['IP Input','BGP Router','OSPF Hello','CDP Protocol','Telnet Daemon','TCP Timer']
+  },
+  '192.168.1.2': {
+    name:'ACCESS-SW-01', os:'Cisco Catalyst 2960 IOS 12.2(55)SE12',
+    comm:['public'], ver:'v1',
+    desc:'Cisco IOS Software, C2960 Software (C2960-LANBASEK9-M), Version 12.2(55)SE12',
+    uptime:'112 days, 04:18:33', contact:'netadmin@corp.internal',
+    loc:'Office Floor 2 — Comms Cupboard',
+    ifaces:[
+      {i:1,name:'FastEthernet0/1',   ip:'N/A',        mac:'bb:cc:dd:11:22:01',st:'up'},
+      {i:2,name:'FastEthernet0/2',   ip:'N/A',        mac:'bb:cc:dd:11:22:02',st:'up'},
+      {i:3,name:'FastEthernet0/24',  ip:'N/A',        mac:'bb:cc:dd:11:22:18',st:'down'},
+      {i:4,name:'GigabitEthernet0/1',ip:'N/A',        mac:'bb:cc:dd:11:22:19',st:'up'},
+      {i:5,name:'Vlan1',             ip:'192.168.1.2',mac:'bb:cc:dd:11:22:20',st:'up'}
+    ],
+    routes:[{dest:'0.0.0.0',mask:'0.0.0.0',next:'192.168.1.1',iface:'Vlan1',m:1}],
+    arp:[{ip:'192.168.1.1',mac:'aa:bb:cc:11:22:01',iface:'Vlan1'}],
+    procs:['STP','CDP','VTP','LACP','IGMP Snooping']
+  },
+  '10.10.0.1': {
+    name:'BACKUP-RTR-01', os:'Cisco IOS 12.4(24)T — LEGACY',
+    comm:['public','private','backup-mgmt'], ver:'v2c',
+    desc:'Cisco IOS Software, Version 12.4(24)T — BACKUP NETWORK — LOW MONITORING',
+    uptime:'364 days, 22:01:17', contact:'backup-admin@corp.internal',
+    loc:'Comms Room B — Backup Infrastructure',
+    ifaces:[
+      {i:1,name:'FastEthernet0/0',ip:'10.10.0.1',  mac:'ee:ff:00:11:22:01',st:'up'},
+      {i:2,name:'FastEthernet0/1',ip:'10.20.0.254',mac:'ee:ff:00:11:22:02',st:'up'}
+    ],
+    routes:[
+      {dest:'0.0.0.0',    mask:'0.0.0.0',      next:'10.10.0.254',iface:'FastEthernet0/0',m:1},
+      {dest:'10.20.0.0',  mask:'255.255.255.0', next:'direct',     iface:'FastEthernet0/1',m:0},
+      {dest:'192.168.99.0',mask:'255.255.255.0',next:'10.20.0.1',  iface:'FastEthernet0/1',m:1}
+    ],
+    arp:[
+      {ip:'10.10.0.254',mac:'aa:bb:cc:11:22:02',iface:'FastEthernet0/0'},
+      {ip:'10.20.0.1',  mac:'ff:00:11:22:33:01',iface:'FastEthernet0/1'},
+      {ip:'10.20.0.5',  mac:'ff:00:11:22:33:02',iface:'FastEthernet0/1'}
+    ],
+    procs:['RIP','CDP','TFTP Server','Telnet Daemon']
+  },
+  '192.168.1.50': {
+    name:'TFTP-SRV-01', os:'Ubuntu 20.04 — tftpd-hpa',
+    comm:[], ver:'none',
+    desc:'Linux tftpd-hpa — no authentication configured',
+    uptime:'N/A', contact:'N/A', loc:'Server Room A',
+    ifaces:[], routes:[], arp:[], procs:['tftpd-hpa'],
+    files:[
+      'CORE-RTR-01-running-config.cfg',
+      'CORE-RTR-01-startup-config.cfg',
+      'ACCESS-SW-01-running-config.cfg',
+      'BACKUP-RTR-01-running-config.cfg',
+      'FW-01-config.cfg'
+    ]
+  },
+  '192.168.10.5': {
+    name:'FW-01', os:'FortiGate 60E — FortiOS 6.4',
+    comm:[], ver:'none',
+    desc:'FortiGate-60E — HTTP management on port 80 — HTTPS on 443',
+    uptime:'200 days, 09:44:12', contact:'security@corp.internal',
+    loc:'Server Room A — Rack 1',
+    ifaces:[], routes:[], arp:[], procs:['WAD','sslvpnd','miglogd']
+  }
+};
+
+// ── OUTPUT HELPERS ─────────────────────────────────────────────────
+function span(cls, text) {
+  return '<span class="' + cls + '">' + esc(text) + '</span>';
+}
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function nl(cls, text) {
+  var out = document.getElementById('out');
+  var line = document.createElement('div');
+  if (cls) line.className = cls;
+  line.innerHTML = text !== undefined ? text : '';
+  out.appendChild(line);
+  out.scrollTop = out.scrollHeight;
+}
+function blank() { nl('', ''); }
+function prompt_line(cmd) {
+  nl('', '<span style="color:var(--orange)">root@kali:~#</span> <span style="color:var(--white)">' + esc(cmd) + '</span>');
+}
+
+// ── INTEL HELPERS ──────────────────────────────────────────────────
+function setIntel(html) {
+  document.getElementById('intel-body').innerHTML = html;
+}
+function setExam(html) {
+  document.getElementById('exam-body').innerHTML = html;
+  document.getElementById('exambox').style.display = 'block';
+}
+function card(hcls, title, bodyHtml) {
+  return '<div class="icard"><div class="icard-h ' + hcls + '">' + title + '</div><div class="icard-b">' + bodyHtml + '</div></div>';
+}
+function irow(k, v, vcls) {
+  return '<div class="irow"><span class="ik">' + k + '</span><span class="iv ' + (vcls||'vb') + '">' + v + '</span></div>';
+}
+
+// ── PROGRESS ───────────────────────────────────────────────────────
+function mark(key) {
+  if (STATE.progress[key]) return;
+  STATE.progress[key] = true;
+  var map = {disc:'pr-disc',comm:'pr-comm',enum:'pr-enum',topo:'pr-topo',conf:'pr-conf'};
+  var el = document.getElementById(map[key]);
+  if (el) el.classList.add('done');
+}
+function addHosts(ips) {
+  ips.forEach(function(ip){ STATE.hosts[ip] = true; });
+  document.getElementById('sb-hosts').textContent = Object.keys(STATE.hosts).length;
+  if (Object.keys(STATE.hosts).length >= 2) mark('disc');
+}
+function addStrings(strs) {
+  strs.forEach(function(s){ STATE.strings[s] = true; });
+  document.getElementById('sb-str').textContent = Object.keys(STATE.strings).length;
+  if (Object.keys(STATE.strings).length >= 1) mark('comm');
+}
+function setPhase(p) {
+  document.getElementById('sb-phase').textContent = p;
+}
+
+// ── INPUT ──────────────────────────────────────────────────────────
+function fill(cmd) {
+  var inp = document.getElementById('inp');
+  inp.value = cmd;
+  inp.focus();
+}
+
+function switchTarget(el) {
+  document.querySelectorAll('.tgt').forEach(function(t){ t.classList.remove('active'); });
+  el.classList.add('active');
+  STATE.target = el.dataset.ip;
+  document.getElementById('sb-tgt').textContent = STATE.target;
+  nl('inf', '[*] Target → ' + STATE.target + ' (' + (NET[STATE.target] ? NET[STATE.target].name : 'unknown') + ')');
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  var inp = document.getElementById('inp');
+
+  inp.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      var raw = inp.value.trim();
+      inp.value = '';
+      if (!raw) return;
+      STATE.history.unshift(raw);
+      STATE.histIdx = -1;
+      STATE.cmdCount++;
+      document.getElementById('sb-cmds').textContent = STATE.cmdCount;
+      prompt_line(raw);
+      runCommand(raw);
+    }
+    else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (STATE.histIdx < STATE.history.length - 1) {
+        STATE.histIdx++;
+        inp.value = STATE.history[STATE.histIdx];
+      }
+    }
+    else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (STATE.histIdx > 0) { STATE.histIdx--; inp.value = STATE.history[STATE.histIdx]; }
+      else { STATE.histIdx = -1; inp.value = ''; }
+    }
+    else if (e.key === 'l' && e.ctrlKey) {
+      e.preventDefault();
+      document.getElementById('out').innerHTML = '';
+    }
+  });
+
+  // focus input on any click in terminal area
+  document.getElementById('out').addEventListener('click', function(){ inp.focus(); });
+  inp.focus();
+
+  // boot
+  setTimeout(boot, 100);
+});
+
+// ── BOOT ───────────────────────────────────────────────────────────
+function boot() {
+  nl('ok',  '╔═══════════════════════════════════════════════════════════════╗');
+  nl('ok',  '║     CYBER ACADEMY — CREST CPSA — MODULE D LAB SIMULATOR      ║');
+  nl('ok',  '║         SNMP Enumeration & Network Protocol Attacks           ║');
+  nl('ok',  '╚═══════════════════════════════════════════════════════════════╝');
+  blank();
+  nl('inf', '  Network topology loaded.  5 hosts online.  All services running.');
+  nl('dim', '  Safe simulation — no real targets — educational use only.');
+  blank();
+  nl('val', '  Default target → 192.168.1.1 (CORE-RTR-01)');
+  blank();
+  nl('dim', '  OBJECTIVE: Enumerate the network using SNMP.');
+  nl('dim', '  Discover hosts → find community strings → map topology → pull configs.');
+  blank();
+  nl('dim', '  Type help and press Enter to begin.');
+  blank();
+}
+
+// ── COMMAND ROUTER ─────────────────────────────────────────────────
+function runCommand(raw) {
+  var parts = raw.trim().split(/\s+/);
+  var cmd = parts[0].toLowerCase();
+  var handlers = {
+    'help':           cmdHelp,
+    'clear':          cmdClear,
+    'onesixtyone':    cmdOneSixtyOne,
+    'snmpwalk':       cmdSnmpWalk,
+    'snmpbulkwalk':   cmdSnmpBulkWalk,
+    'snmpget':        cmdSnmpGet,
+    'snmpset':        cmdSnmpSet,
+    'snmptrap':       cmdSnmpTrap,
+    'snmp-check':     cmdSnmpCheck,
+    'snmp-enum':      cmdSnmpEnum,
+    'braa':           cmdBraa,
+    'nmap':           cmdNmap,
+    'msfconsole':     cmdMsf,
+    'tftp':           cmdTftp,
+    'ifconfig':       cmdIfconfig,
+    'target':         cmdTarget,
+    'whoami':         function(){ nl('ok','root'); },
+    'id':             function(){ nl('ok','uid=0(root) gid=0(root) groups=0(root)'); },
+    'pwd':            function(){ nl('val','/root'); },
+    'ls':             function(){ nl('val','communities.txt  recon  tools'); }
+  };
+  if (handlers[cmd]) {
+    handlers[cmd](parts, raw);
+  } else {
+    nl('err', 'bash: ' + cmd + ': command not found');
+    nl('dim', 'Type "help" to see available commands.');
+    blank();
+  }
+}
+
+// ── IP + COMMUNITY EXTRACT ─────────────────────────────────────────
+function getIP(raw) {
+  var m = raw.match(/\b(\d{1,3}(?:\.\d{1,3}){3})\b/);
+  return m ? m[1] : STATE.target;
+}
+function getComm(raw) {
+  var m = raw.match(/-c\s+(\S+)/);
+  if (!m) return 'public';
+  var c = m[1];
+  // if it looks like a filename/path, default to public
+  if (c.indexOf('/') !== -1 || c.indexOf('.txt') !== -1) return 'public';
+  return c;
+}
+
+// ── COMMANDS ───────────────────────────────────────────────────────
+
+function cmdHelp() {
+  blank();
+  nl('inf', '┌─ DISCOVERY ─────────────────────────────────────────────────────────');
+  nl('val', '│  nmap -sU -p161 <target>                     UDP scan — confirm SNMP port');
+  nl('val', '│  onesixtyone -c <wordlist> <target>          Brute-force community strings');
+  nl('val', '│  braa <community>@<target>:.1.3.6.*          Fast mass SNMP scanner');
+  nl('val', '│  snmp-check <target> -c <community>          Automated SNMP audit report');
+  nl('val', '│  snmp-enum <target> <community>              Perl-based full enumerator');
+  nl('inf', '├─ ENUMERATION ───────────────────────────────────────────────────────');
+  nl('val', '│  snmpwalk -v2c -c <community> <target>       Walk full MIB tree');
+  nl('val', '│  snmpbulkwalk -v2c -c <community> <target>   Fast bulk walk (GETBULK)');
+  nl('val', '│  snmpwalk ... ipRouteTable                   Extract routing table');
+  nl('val', '│  snmpwalk ... ifTable                        Enumerate interfaces');
+  nl('val', '│  snmpwalk ... ipNetToMediaTable              Dump ARP cache');
+  nl('val', '│  snmpwalk ... hrSWRunName                    List running processes');
+  nl('val', '│  snmpget  -v2c -c <community> <target> <oid> Get specific OID value');
+  nl('inf', '├─ EXPLOITATION ──────────────────────────────────────────────────────');
+  nl('val', '│  snmpset -v2c -c private <target> <oid> <type> <val>  Write via SNMP');
+  nl('val', '│  msfconsole [snmp_enum]    Metasploit — full SNMP enumeration module');
+  nl('val', '│  msfconsole [snmp_login]   Metasploit — community string brute-force');
+  nl('inf', '├─ OTHER ─────────────────────────────────────────────────────────────');
+  nl('val', '│  tftp <target>                               List TFTP files');
+  nl('val', '│  tftp <target> get <filename>                Pull config via TFTP');
+  nl('val', '│  target <ip>                                 Switch active target');
+  nl('val', '│  clear                                       Clear terminal');
+  nl('inf', '└─────────────────────────────────────────────────────────────────────');
+  blank();
+  nl('dim', '  Tip: ↑↓ = command history  |  Ctrl+L = clear  |  Click sidebar to fill input');
+  nl('dim', '  Each command shows Offensive Intel + Exam Notes + Defence in the right panel.');
+  blank();
+}
+
+function cmdClear() {
+  document.getElementById('out').innerHTML = '';
+}
+
+function cmdTarget(parts, raw) {
+  var ip = parts[1];
+  if (!ip) { nl('err','Usage: target <ip>'); return; }
+  if (!NET[ip]) { nl('err','No host ' + ip + ' in target network.'); return; }
+  STATE.target = ip;
+  document.getElementById('sb-tgt').textContent = ip;
+  document.querySelectorAll('.tgt').forEach(function(t){
+    t.classList.toggle('active', t.dataset.ip === ip);
+  });
+  nl('ok', '[*] Target → ' + ip + ' (' + NET[ip].name + ')');
+  blank();
+}
+
+function cmdIfconfig() {
+  nl('val', 'eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500');
+  nl('dim', '        inet 192.168.1.100  netmask 255.255.255.0  broadcast 192.168.1.255');
+  nl('dim', '        ether de:ad:be:ef:ca:fe  txqueuelen 1000  (Ethernet)');
+  blank();
+  nl('val', 'lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536');
+  nl('dim', '        inet 127.0.0.1  netmask 255.0.0.0');
+  blank();
+}
+
+function cmdOneSixtyOne(parts, raw) {
+  var target = getIP(raw);
+  var host = NET[target];
+  if (!host) { nl('err','No route to host: ' + target); blank(); return; }
+
+  nl('inf', 'Scanning ' + target + ' for SNMP community strings...');
+  blank();
+  nl('dim', "[  0%] Testing 'public'...");
+  nl('dim', "[ 25%] Testing 'private'...");
+  nl('dim', "[ 50%] Testing 'manager'...");
+  nl('dim', "[ 75%] Testing 'backup-mgmt'...");
+  blank();
+
+  if (!host.comm.length) {
+    nl('dim', target + ' — No response (SNMP not running on this host)');
+    blank();
+    addHosts([target]);
+    setIntel(
+      card('h-bl','⬡ No SNMP Response',
+        irow('Target', target, 'vb') +
+        irow('Host', host.name) +
+        irow('SNMP', 'Not running', 'vr') +
+        irow('Next step', 'Try nmap or service scan', 'va')
+      )
+    );
+    return;
+  }
+
+  host.comm.forEach(function(c) {
+    nl('ok', target + ' [' + c + ']');
+  });
+  blank();
+  nl('inf', '[+] ' + host.comm.length + ' community string(s) found on ' + host.name);
+  blank();
+
+  addHosts([target]);
+  addStrings(host.comm);
+  var hasWrite = host.comm.indexOf('private') !== -1 || host.comm.indexOf('backup-mgmt') !== -1;
+  setPhase(hasWrite ? 'WRITE ACCESS' : 'READ ACCESS');
+  mark('disc'); mark('comm');
+
+  setIntel(
+    card(hasWrite ? 'h-re' : 'h-am', hasWrite ? '⚠ READ + WRITE ACCESS' : '⬡ Read Access Confirmed',
+      irow('Target', target, 'vb') +
+      irow('Hostname', host.name, 'vg') +
+      irow('SNMP version', host.ver, 'va') +
+      irow('Community strings', host.comm.join(', '), hasWrite ? 'vr' : 'va') +
+      irow('Write access (snmpset)', hasWrite ? 'YES' : 'No', hasWrite ? 'vr' : 'vg')
+    ) +
+    card('h-or', '⬡ Offensive Value',
+      hasWrite
+        ? '<strong>private</strong> community = write access via <code>snmpset</code>.<br><br>You can now modify: routing tables, interface states, community strings, SNMP traps.<br><br>This is configuration control — not just reconnaissance.'
+        : '<strong>public</strong> community = full read access.<br><br>Run <code>snmpwalk</code> to extract: topology, interfaces, ARP cache, routing tables, running processes.<br><br>Read access alone is enough to silently map the entire internal network.'
+    )
+   +
+    defcard(
+      '<strong>Rename/randomise community strings</strong> — never use public/private. Use strings 20+ chars, mixed case, no dictionary words.<br><br><strong>Enable SNMPv3</strong> — v1/v2c community strings are sent in cleartext and can be sniffed on the wire.<br><br><strong>Restrict SNMP by source IP</strong> — apply ACLs so only your NMS/monitoring host can query UDP/161.<br><br><strong>Monitor for community string brute-force</strong> — repeated UDP/161 traffic from non-management hosts is a detection opportunity.'
+    ));
+  setExam(
+    '<strong>public</strong> = read-only (GET/WALK operations)<br>' +
+    '<strong>private</strong> = read-write (SET operations — can modify device config)<br><br>' +
+    'This is the core CPSA exam distinction for SNMP. <strong>Read vs write access.</strong><br><br>' +
+    'With <code>private</code>, an attacker can use <code>snmpset</code> to rewrite routing tables, disable interfaces, or change community strings entirely.'
+  );
+}
+
+function cmdSnmpWalk(parts, raw) {
+  var target = getIP(raw);
+  var host = NET[target];
+  if (!host) { nl('err','No route to host: ' + target); blank(); return; }
+  if (!host.comm.length) { nl('err','Timeout: No Response from ' + target); blank(); return; }
+
+  var comm = getComm(raw);
+  if (host.comm.indexOf(comm) === -1) {
+    nl('err', 'Timeout: No Response from ' + target);
+    nl('dim', 'Community string "' + comm + '" rejected by host.');
+    nl('dim', 'Run onesixtyone first to identify valid community strings.');
+    blank();
+    return;
+  }
+
+  var rl = raw.toLowerCase();
+  if (rl.indexOf('iproutetable') !== -1 || rl.indexOf('iproute') !== -1) { walkRoutes(target, host); return; }
+  if (rl.indexOf('iftable') !== -1 || rl.indexOf('ifentry') !== -1)      { walkIfaces(target, host); return; }
+  if (rl.indexOf('ipnettomedia') !== -1 || rl.indexOf('arp') !== -1)     { walkARP(target, host); return; }
+  if (rl.indexOf('hrswrunname') !== -1 || rl.indexOf('process') !== -1)  { walkProcs(target, host); return; }
+  walkFull(target, host);
+}
+
+function walkFull(target, host) {
+  nl('inf', 'Starting SNMP walk on ' + target + '...');
+  blank();
+  nl('dim', 'SNMPv2-MIB::sysDescr.0 = STRING: ' + host.desc);
+  nl('val', 'SNMPv2-MIB::sysUpTime.0 = Timeticks: ' + host.uptime);
+  nl('val', 'SNMPv2-MIB::sysContact.0 = STRING: ' + host.contact);
+  nl('ok',  'SNMPv2-MIB::sysName.0 = STRING: ' + host.name);
+  nl('ok',  'SNMPv2-MIB::sysLocation.0 = STRING: ' + host.loc);
+  nl('dim', 'SNMPv2-MIB::sysServices.0 = INTEGER: 78');
+  blank();
+  host.ifaces.slice(0,3).forEach(function(f, i) {
+    nl('dim', 'IF-MIB::ifDescr.' + (i+1) + ' = STRING: ' + f.name);
+    nl('val', 'IF-MIB::ifPhysAddress.' + (i+1) + ' = STRING: ' + f.mac);
+    nl(f.st==='up'?'ok':'err', 'IF-MIB::ifOperStatus.' + (i+1) + ' = INTEGER: ' + (f.st==='up'?'up(1)':'down(2)'));
+    blank();
+  });
+  nl('inf', '... [' + (35 + Math.floor(Math.random()*20)) + ' additional OIDs — use MIB subtrees for targeted extraction]');
+  blank();
+
+  addHosts([target]); mark('enum'); setPhase('ENUMERATION');
+  setIntel(
+    card('h-gr', '⬡ Intelligence Extracted',
+      irow('Hostname', host.name, 'vg') +
+      irow('OS / Version', host.os, 'vo') +
+      irow('Uptime', host.uptime, 'vb') +
+      irow('Admin contact', host.contact, 'va') +
+      irow('Location', host.loc)
+    ) +
+    card('h-or', '⬡ Operator Thinking',
+      '<strong>sysDescr</strong> confirms exact OS version — search CVEs immediately.<br><br>' +
+      '<strong>sysContact</strong> is a social engineering target — spear phish or pretext calls.<br><br>' +
+      '<strong>sysLocation</strong> gives physical intel — rack, room, building.<br><br>' +
+      '<strong>sysName</strong> follows naming conventions — predict other hostnames on the network.'
+    )
+   +
+    defcard(
+      '<strong>Disable SNMP if not required</strong> — if you don\'t actively use it for monitoring, shut it off entirely.<br><br><strong>Restrict MIB access with SNMP views</strong> — limit readable OIDs to only what your monitoring system needs. sysDescr, sysName are fine — routing tables are not.<br><br><strong>Upgrade to SNMPv3 authPriv</strong> — encrypts the community string equivalent (USM) so MIB data cannot be read off the wire.'
+    ));
+  setExam(
+    'A full <code>snmpwalk</code> returns the entire MIB tree.<br><br>' +
+    'Key OIDs for the CPSA exam:<br>' +
+    '<strong>sysDescr</strong> — OS, version, exact model<br>' +
+    '<strong>sysName</strong> — hostname (maps to naming conventions)<br>' +
+    '<strong>sysLocation</strong> — physical location intel<br>' +
+    '<strong>sysContact</strong> — admin contact (social engineering value)<br>' +
+    '<strong>sysUptime</strong> — time since reboot — indicator of patch cycles'
+  );
+}
+
+function walkRoutes(target, host) {
+  nl('inf', 'Extracting IP routing table from ' + target + '...');
+  blank();
+  host.routes.forEach(function(r, i) {
+    nl('dim', 'IP-MIB::ipRouteDest.' + (i+1)    + '    = IpAddress: ' + r.dest);
+    nl('dim', 'IP-MIB::ipRouteMask.' + (i+1)    + '    = IpAddress: ' + r.mask);
+    nl('ok',  'IP-MIB::ipRouteNextHop.' + (i+1) + ' = IpAddress: ' + r.next);
+    nl('val', 'IP-MIB::ipRouteIfIndex.' + (i+1) + ' = STRING: ' + r.iface);
+    nl('dim', 'IP-MIB::ipRouteMetric.' + (i+1)  + '  = INTEGER: ' + r.m);
+    blank();
+  });
+  nl('ok', '[+] ' + host.routes.length + ' routes extracted from ' + host.name);
+  blank();
+
+  var newHosts = host.routes.map(function(r){ return r.next; }).filter(function(n){ return n !== 'direct' && /^\d/.test(n); });
+  addHosts([target].concat(newHosts)); mark('topo'); setPhase('ROUTE MAPPING');
+
+  setIntel(
+    card('h-gr', '⬡ Network Map Extracted',
+      irow('Routes found', host.routes.length, 'vg') +
+      irow('Internal subnets', host.routes.filter(function(r){ return r.dest !== '0.0.0.0'; }).length, 'vo') +
+      irow('Next-hop devices', newHosts.length, 'vb')
+    ) +
+    card('h-re', '⬡ Pivot Opportunities',
+      host.routes.filter(function(r){ return r.dest !== '0.0.0.0'; }).map(function(r){
+        return irow(r.dest + '/' + r.mask, 'via ' + r.next, 'vb');
+      }).join('') +
+      '<br><strong>These subnets are not visible from outside.</strong><br>This is how red teams find networks outside the agreed scope.'
+    )
+   +
+    defcard(
+      '<strong>Remove ipRouteTable from SNMP views</strong> — there is no operational reason for external parties to read your routing table via SNMP.<br><br><strong>Segment management traffic</strong> — SNMP should only be reachable from a dedicated out-of-band management VLAN, not from production networks.<br><br><strong>Monitor for SNMP MIB walks</strong> — a full MIB walk generates significant SNMP traffic. Baseline your SNMP traffic and alert on anomalies.'
+    ));
+  setExam(
+    '<code>ipRouteTable</code> exposes the full routing table via SNMP read access.<br><br>' +
+    'Offensive value:<br>' +
+    '<strong>Internal subnets</strong> not visible externally<br>' +
+    '<strong>Next-hop IPs</strong> — other routers to pivot through<br>' +
+    '<strong>Trust relationships</strong> between segments<br><br>' +
+    'This is how red teams find <em>networks the client forgot to scope</em>. No exploit needed.'
+  );
+}
+
+function walkIfaces(target, host) {
+  nl('inf', 'Enumerating interfaces on ' + target + '...');
+  blank();
+  host.ifaces.forEach(function(f) {
+    nl('val', 'IF-MIB::ifDescr.' + f.i + '       = STRING: ' + f.name);
+    if (f.ip !== 'N/A') nl('ok', 'IF-MIB::ifIpAddress.' + f.i + '   = IpAddress: ' + f.ip);
+    nl('dim', 'IF-MIB::ifPhysAddress.' + f.i + ' = STRING: ' + f.mac);
+    nl(f.st==='up'?'ok':'err', 'IF-MIB::ifOperStatus.' + f.i  + '  = INTEGER: ' + (f.st==='up'?'up(1)':'down(2)'));
+    blank();
+  });
+  nl('ok', '[+] ' + host.ifaces.length + ' interfaces enumerated');
+  blank();
+
+  addHosts([target]); mark('enum');
+  setIntel(
+    card('h-gr', '⬡ Interface Map',
+      host.ifaces.map(function(f){
+        return irow(f.name, f.ip !== 'N/A' ? f.ip : f.st, f.st==='up'?'vg':'vr');
+      }).join('')
+    ) +
+    card('h-or', '⬡ Offensive Value',
+      'IP addresses confirm which network segments this device connects to.<br><br>' +
+      'MAC addresses can be used for <strong>ARP spoofing</strong> — impersonate this device\'s gateway role.<br><br>' +
+      'Down interfaces (<code>down(2)</code>) often have reduced monitoring.'
+    )
+   +
+    defcard(
+      '<strong>Restrict ifTable access via SNMP views</strong> — interface MAC addresses and IP assignments should not be readable by untrusted parties.<br><br><strong>Use SNMPv3 with encryption</strong> — even if an attacker gets community strings, authPriv mode prevents OID data being read from captured traffic.<br><br><strong>Implement 802.1X port authentication</strong> — having MAC addresses doesn\'t help an attacker spoof onto a port-secured network.'
+    ));
+  setExam(
+    '<code>ifTable</code> reveals every network interface on the device.<br><br>' +
+    '<strong>IP addresses</strong> per interface → maps network segments<br>' +
+    '<strong>MAC addresses</strong> → ARP spoofing targets<br>' +
+    '<strong>ifOperStatus</strong> → active vs inactive interfaces<br><br>' +
+    'This data combined with ARP cache gives you a complete host inventory.'
+  );
+}
+
+function walkARP(target, host) {
+  nl('inf', 'Dumping ARP cache from ' + target + '...');
+  blank();
+  host.arp.forEach(function(e, i) {
+    nl('ok',  'IP-MIB::ipNetToMediaNetAddress.' + (i+1)  + ' = IpAddress: ' + e.ip);
+    nl('dim', 'IP-MIB::ipNetToMediaPhysAddress.' + (i+1) + ' = STRING: ' + e.mac);
+    nl('dim', 'IP-MIB::ipNetToMediaIfIndex.' + (i+1)     + '    = STRING: ' + e.iface);
+    nl('dim', 'IP-MIB::ipNetToMediaType.' + (i+1)        + '       = INTEGER: dynamic(3)');
+    blank();
+  });
+  nl('ok', '[+] ' + host.arp.length + ' live hosts discovered via ARP cache');
+  blank();
+
+  addHosts([target].concat(host.arp.map(function(e){ return e.ip; }))); mark('disc'); mark('topo'); setPhase('HOST DISCOVERY');
+  setIntel(
+    card('h-gr', '⬡ Live Hosts Discovered',
+      host.arp.map(function(e){ return irow(e.ip, e.mac, 'vb'); }).join('')
+    ) +
+    card('h-re', '⬡ ARP Spoofing Ready',
+      'You now have MAC addresses for every live host on these segments.<br><br>' +
+      'To intercept traffic: poison ARP caches — tell victim your MAC is the gateway, tell gateway your MAC is the victim.<br><br>' +
+      '<strong>No exploit required.</strong> ARP has zero authentication. It trusts everything.'
+    )
+   +
+    defcard(
+      '<strong>Restrict ipNetToMediaTable in SNMP views</strong> — ARP cache enumeration is passive host discovery with zero noise. Remove it from readable OIDs.<br><br><strong>Enable Dynamic ARP Inspection (DAI)</strong> on switches — validates ARP packets against a DHCP snooping table, blocking ARP spoofing attempts.<br><br><strong>Static ARP entries</strong> for critical assets (domain controllers, gateways) — prevents ARP cache poisoning on those specific hosts.'
+    ));
+  setExam(
+    '<code>ipNetToMediaTable</code> returns the ARP table — every host that communicated recently.<br><br>' +
+    'This is <strong>passive host discovery</strong> — zero active scanning:<br>' +
+    'Only live, recently-active hosts appear<br>' +
+    'MAC addresses obtained for ARP spoofing<br>' +
+    'Interface shows which segment each host lives on<br><br>' +
+    'On a core router, the ARP cache can reveal the entire active internal topology.'
+  );
+}
+
+function walkProcs(target, host) {
+  nl('inf', 'Enumerating running processes on ' + target + '...');
+  blank();
+  host.procs.forEach(function(p, i) {
+    var danger = p.toLowerCase().indexOf('telnet') !== -1 || p.toLowerCase().indexOf('tftp') !== -1;
+    nl(danger ? 'err' : 'val', 'HOST-RESOURCES-MIB::hrSWRunName.' + (i+1) + ' = STRING: "' + p + '"' + (danger ? '  ← CLEARTEXT' : ''));
+    nl('dim', 'HOST-RESOURCES-MIB::hrSWRunStatus.' + (i+1) + ' = INTEGER: running(1)');
+    blank();
+  });
+
+  var hasTelnet = host.procs.some(function(p){ return p.toLowerCase().indexOf('telnet') !== -1; });
+  setIntel(
+    card('h-am', '⬡ Running Services',
+      host.procs.map(function(p){
+        var d = p.toLowerCase().indexOf('telnet') !== -1 || p.toLowerCase().indexOf('tftp') !== -1;
+        return irow(p, d ? '⚠ CLEARTEXT' : 'running', d ? 'vr' : 'vb');
+      }).join('')
+    ) +
+    card('h-or', '⬡ What This Means',
+      (hasTelnet ? '<strong>Telnet Daemon</strong> confirmed — credentials cross the wire unencrypted. Drop a capture point and wait.<br><br>' : '') +
+      'Process list confirms device role and additional attack surface beyond SNMP.'
+    )
+   +
+    defcard(
+      '<strong>Disable Telnet — use SSH v2 only</strong> — any cleartext management protocol exposed is a credential capture waiting to happen.<br><br><strong>Disable TFTP</strong> — replace with SCP or SFTP for config transfers. TFTP has no authentication and no encryption.<br><br><strong>Restrict hrSWRunName in SNMP views</strong> — process enumeration via SNMP should not be available outside dedicated monitoring systems.'
+    ));
+  setExam(
+    '<code>hrSWRunName</code> lists running processes on SNMP-enabled hosts.<br><br>' +
+    'What process data reveals to an attacker:<br>' +
+    '<strong>Routing protocols</strong> (RIP, OSPF, BGP) — how traffic flows<br>' +
+    '<strong>Legacy services</strong> (Telnet, TFTP) — cleartext exposure<br>' +
+    '<strong>Device role</strong> — core router, edge, backup<br><br>' +
+    'This works on Linux and Windows hosts with SNMP agents too — not just network devices.'
+  );
+}
+
+function cmdSnmpGet(parts, raw) {
+  var target = getIP(raw);
+  var host = NET[target];
+  if (!host || !host.comm.length) { nl('err','Timeout: No Response from ' + target); blank(); return; }
+  var comm = getComm(raw);
+  if (host.comm.indexOf(comm) === -1) { nl('err','Timeout: No Response from ' + target); blank(); return; }
+  var rl = raw.toLowerCase();
+  var result = 'SNMPv2-MIB::sysDescr.0 = STRING: ' + host.desc;
+  if (rl.indexOf('sysname') !== -1)   result = 'SNMPv2-MIB::sysName.0 = STRING: ' + host.name;
+  else if (rl.indexOf('sysloc') !== -1) result = 'SNMPv2-MIB::sysLocation.0 = STRING: ' + host.loc;
+  else if (rl.indexOf('syscon') !== -1) result = 'SNMPv2-MIB::sysContact.0 = STRING: ' + host.contact;
+  else if (rl.indexOf('sysup') !== -1)  result = 'SNMPv2-MIB::sysUpTime.0 = Timeticks: ' + host.uptime;
+  nl('val', result);
+  blank();
+  addHosts([target]);
+}
+
+function cmdNmap(parts, raw) {
+  var target = getIP(raw);
+  var host = NET[target];
+  if (!host) { nl('err','Host ' + target + ' — no response.'); blank(); return; }
+  var hasSnmp = host.comm.length > 0;
+  nl('inf', 'Starting Nmap — UDP scan on ' + target);
+  nl('dim', 'Nmap scan report for ' + target);
+  nl('dim', 'Host is up (0.0031s latency).');
+  blank();
+  nl('dim', 'PORT     STATE          SERVICE');
+  nl(hasSnmp ? 'ok' : 'dim', '161/udp  ' + (hasSnmp ? 'open|filtered ' : 'closed        ') + 'snmp');
+  blank();
+  if (hasSnmp) nl('dim', '  → Run onesixtyone to enumerate community strings on ' + target);
+  blank();
+
+  addHosts([target]);
+  if (hasSnmp) {
+    setIntel(
+      card('h-gr', '⬡ SNMP Confirmed',
+        irow('Port', 'UDP/161', 'vg') +
+        irow('State', 'open|filtered', 'vg') +
+        irow('Target', target + ' (' + host.name + ')', 'vb')
+      ) +
+      card('h-or', '⬡ Next Steps',
+        'SNMP confirmed. Run <code>onesixtyone -c communities.txt ' + target + '</code> to brute-force community strings.<br><br>' +
+        'Default strings to try: <strong>public</strong>, <strong>private</strong>, <strong>manager</strong>.'
+      )
+     +
+    defcard(
+      '<strong>Firewall UDP/161 at the perimeter</strong> — SNMP should never be reachable from the internet or untrusted networks.<br><br><strong>Use host-based firewalls</strong> — even internally, restrict UDP/161 to management host IPs only.<br><br><strong>Monitor for UDP port scans</strong> — nmap UDP scans are noisy. Baseline UDP traffic and alert on scanning patterns from unexpected sources.'
+    ));
+    setExam(
+      'SNMP listens on <strong>UDP/161</strong>. Always use <code>nmap -sU</code> — TCP scans miss SNMP entirely.<br><br>' +
+      '<code>open|filtered</code> is the normal nmap UDP response — it means the port responded.<br><br>' +
+      '<strong>Workflow:</strong> nmap → confirm port → onesixtyone → find strings → snmpwalk → enumerate.'
+    );
+  }
+}
+
+function cmdTftp(parts, raw) {
+  var target = getIP(raw);
+  if (target !== '192.168.1.50') {
+    nl('err', 'tftp: connect: Connection refused');
+    nl('dim', 'TFTP server is at 192.168.1.50');
+    blank();
+    return;
+  }
+  var host = NET[target];
+  var getMatch = raw.match(/get\s+(\S+)/i);
+
+  if (!getMatch) {
+    nl('ok',  'Connected to ' + target + ' (' + host.name + ') — no credentials required');
+    blank();
+    nl('inf', 'Files available on server:');
+    host.files.forEach(function(f){ nl('val', '  ' + f); });
+    blank();
+    nl('dim', '  Use: tftp ' + target + ' get <filename>');
+    blank();
+    addHosts([target]);
+    setIntel(
+      card('h-re', '⬡ TFTP — No Authentication',
+        irow('Server', target, 'vb') +
+        irow('Auth required', 'NONE', 'vr') +
+        irow('Files exposed', host.files.length + ' device configs', 'vr')
+      ) +
+      card('h-or', '⬡ What to Pull',
+        host.files.map(function(f){ return '<code>tftp ' + target + ' get ' + f + '</code><br>'; }).join('') +
+        '<br>Every config contains credentials, SNMP strings, and full topology.'
+      )
+    );
+    setExam(
+      'TFTP (Trivial File Transfer Protocol) has <strong>no authentication mechanism</strong>.<br><br>' +
+      'Network devices commonly backup configs to TFTP servers.<br><br>' +
+      'What configs typically contain:<br>' +
+      '<strong>Plaintext / Type 7 passwords</strong> (trivially reversible)<br>' +
+      '<strong>SNMP community strings</strong><br>' +
+      '<strong>VTY line config</strong> (Telnet/SSH access settings)<br>' +
+      '<strong>ACL rules</strong> — often misconfigured<br>' +
+      '<strong>Full topology</strong> from interface and route config'
+    );
+    return;
+  }
+
+  var fname = getMatch[1];
+  if (host.files.indexOf(fname) === -1) {
+    nl('err', 'Error code 1: File not found — ' + fname);
+    blank();
+    return;
+  }
+
+  nl('ok',  'Received ' + fname + ' (' + (4 + Math.floor(Math.random()*8)) + ' KB)  [No authentication required]');
+  blank();
+  nl('inf', '══ ' + fname + ' (excerpt) ══');
+  nl('val', 'hostname ' + fname.split('-running')[0].split('-startup')[0]);
+  nl('val', '!');
+  nl('val', 'enable password 7 08304E4D0723');
+  nl('err', '! ⚠  Cisco Type 7 — trivially reversible with any online tool');
+  nl('val', '!');
+  nl('val', 'snmp-server community public RO');
+  nl('val', 'snmp-server community private RW');
+  nl('err', '! ⚠  Both SNMP community strings exposed in plaintext');
+  nl('val', '!');
+  nl('val', 'line vty 0 4');
+  nl('val', ' password 7 110A1016141D');
+  nl('val', ' transport input telnet');
+  nl('err', '! ⚠  Telnet on VTY lines — cleartext credential exposure');
+  nl('val', '!');
+  nl('val', 'ip access-list standard MGMT-ACCESS');
+  nl('val', ' permit 192.168.0.0 0.0.255.255');
+  nl('wrn', '! ⚠  Overly broad ACL — entire /16 permitted for management');
+  nl('val', '!');
+  nl('dim', '[... ' + (100 + Math.floor(Math.random()*150)) + ' more lines ...]');
+  blank();
+  nl('ok',  '[+] Config extracted. Cross-reference with network topology.');
+  blank();
+
+  addHosts([target]); mark('conf'); setPhase('CONFIG EXTRACTED');
+  setIntel(
+    card('h-re', '⬡ Config Failures Found',
+      irow('enable password', 'Type 7 — reversible', 'vr') +
+      irow('VTY transport', 'Telnet enabled', 'vr') +
+      irow('SNMP community', 'Exposed in config', 'vr') +
+      irow('ACL scope', 'Overly broad /16 permit', 'va')
+    ) +
+    card('h-or', '⬡ Operator Value',
+      'This config is a complete attack blueprint.<br><br>' +
+      '<strong>Type 7 passwords</strong> → decode instantly → reuse for Telnet auth<br>' +
+      '<strong>Community strings</strong> → confirm SNMP access across all devices<br>' +
+      '<strong>ACL rules</strong> → identify allowed management sources to spoof<br><br>' +
+      'One TFTP pull. Entire engagement unlocked.'
+    )
+   +
+    defcard(
+      '<strong>Disable TFTP immediately</strong> — replace with SCP, SFTP, or a configuration management system with authentication.<br><br><strong>Store device configs in a configuration management DB (CMDB)</strong> — with access controls, versioning, and audit logging.<br><br><strong>Enable \'service password-encryption\'</strong> — at minimum use Type 9 (scrypt) not Type 7. Better: use a password manager and avoid storing credentials in configs.'
+    ));
+  setExam(
+    '<strong>enable password 7</strong> — Cisco Type 7, reversible in seconds<br>' +
+    '<strong>enable secret 5</strong> — MD5 hash, offline-crackable with wordlists<br>' +
+    '<strong>transport input telnet</strong> — all VTY credentials in cleartext<br>' +
+    '<strong>service password-encryption</strong> — Type 7 only, not real security<br>' +
+    '<strong>Broad ACL permits</strong> — management from wide IP ranges<br><br>' +
+    'CPSA expects you to identify <em>which config lines represent failures and why</em>.'
+  );
+}
+
+// ── snmpbulkwalk ───────────────────────────────────────────────────
+function cmdSnmpBulkWalk(parts, raw) {
+  var target = getIP(raw);
+  var host = NET[target];
+  if (!host) { nl('err','No route to host: ' + target); blank(); return; }
+  if (!host.comm.length) { nl('err','Timeout: No Response from ' + target); blank(); return; }
+  var comm = getComm(raw);
+  if (host.comm.indexOf(comm) === -1) {
+    nl('err','Timeout: No Response from ' + target);
+    nl('dim','Community string "' + comm + '" rejected. Run onesixtyone first.');
+    blank(); return;
+  }
+  nl('inf', 'Starting SNMPv2c GETBULK walk on ' + target + ' (max-repetitions=10)...');
+  blank();
+  nl('dim', 'SNMPv2-MIB::sysDescr.0 = STRING: ' + host.desc);
+  nl('val', 'SNMPv2-MIB::sysName.0 = STRING: ' + host.name);
+  nl('val', 'SNMPv2-MIB::sysLocation.0 = STRING: ' + host.loc);
+  nl('val', 'SNMPv2-MIB::sysContact.0 = STRING: ' + host.contact);
+  nl('val', 'SNMPv2-MIB::sysUpTime.0 = Timeticks: ' + host.uptime);
+  blank();
+  host.ifaces.forEach(function(f,i){
+    nl('val','IF-MIB::ifDescr.' + f.i + ' = STRING: ' + f.name);
+    nl('dim','IF-MIB::ifPhysAddress.' + f.i + ' = STRING: ' + f.mac);
+  });
+  blank();
+  nl('ok', '[+] Bulk walk complete — ' + (25 + Math.floor(Math.random()*15)) + ' OIDs retrieved');
+  nl('dim', '    GETBULK retrieved ~3x faster than standard snmpwalk on large MIBs');
+  blank();
+  addHosts([target]); mark('enum');
+  setIntel(
+    card('h-gr','⬡ snmpbulkwalk — GETBULK',
+      irow('Protocol','SNMPv2c GETBULK','vb') +
+      irow('Target', target + ' (' + host.name + ')','vg') +
+      irow('Speed','~3x faster than snmpwalk','vg') +
+      irow('Output','Same data, retrieved in bulk','vb')
+    ) +
+    card('h-or','⬡ When to Use This',
+      '<strong>snmpbulkwalk</strong> uses the GETBULK operation instead of GETNEXT.<br><br>' +
+      'On large MIBs (routers with many interfaces/routes) it is significantly faster.<br><br>' +
+      '<strong>Limitation:</strong> only works with SNMPv2c and v3 — not v1.<br><br>' +
+      'Same enumeration results as snmpwalk, just quicker to retrieve.'
+    )
+   +
+    defcard(
+      '<strong>Migrate to SNMPv3</strong> — GETBULK (and all SNMPv2c operations) are completely unencrypted. SNMPv3 authPriv encrypts every PDU.<br><br><strong>Monitor for bulk SNMP traffic</strong> — GETBULK requests retrieve many OIDs per packet. High-volume SNMP traffic from unexpected hosts is anomalous.<br><br><strong>Disable SNMPv2c if you can use v3</strong> — if all your monitoring tools support SNMPv3, there is no reason to keep v2c enabled.'
+    ));
+  setExam(
+    '<strong>snmpbulkwalk</strong> uses the GETBULK PDU type introduced in <strong>SNMPv2c</strong>.<br><br>' +
+    'CPSA exam point: GETBULK is a key improvement of v2c over v1.<br><br>' +
+    'SNMPv1 only supports: GET, GETNEXT, SET, TRAP<br>' +
+    'SNMPv2c adds: <strong>GETBULK</strong>, INFORM, TRAP v2<br><br>' +
+    'GETBULK retrieves multiple OIDs per request using <code>max-repetitions</code> — reduces round-trips on large MIBs.'
+  );
+}
+
+// ── snmp-check ─────────────────────────────────────────────────────
+function cmdSnmpCheck(parts, raw) {
+  var target = getIP(raw);
+  var host = NET[target];
+  if (!host) { nl('err','No route to host: ' + target); blank(); return; }
+  var comm = 'public';
+  var cm = raw.match(/-c\s+(\S+)/);
+  if (cm) comm = cm[1];
+
+  if (!host.comm.length || host.comm.indexOf(comm) === -1) {
+    nl('err','snmp-check: ' + target + ' — no SNMP response with community "' + comm + '"');
+    blank(); return;
+  }
+
+  nl('inf', 'snmp-check v1.9 - SNMP enumerator');
+  nl('dim', 'Copyright (c) 2011-2015 by Matteo Piano <matteo@snmpcheck.eu>');
+  blank();
+  nl('ok',  '[+] SNMP Information:');
+  nl('val', '');
+  nl('val', '  IP address:         ' + target);
+  nl('val', '  Hostname:           ' + host.name);
+  nl('val', '  Description:        ' + host.desc);
+  nl('val', '  Contact:            ' + host.contact);
+  nl('val', '  Location:           ' + host.loc);
+  nl('val', '  Uptime snmp:        ' + host.uptime);
+  nl('val', '  Uptime system:      ' + host.uptime);
+  nl('val', '  System date:        2024-11-14 09:22:14.0');
+  blank();
+  nl('ok',  '[+] Network Information:');
+  blank();
+  host.ifaces.forEach(function(f){
+    nl('val', '  Interface:          ' + f.name);
+    if (f.ip !== 'N/A') nl('val','  IP Address:         ' + f.ip);
+    nl('val', '  MAC Address:        ' + f.mac);
+    nl('val', '  Type:               ' + (f.st === 'up' ? 'up' : 'down'));
+    blank();
+  });
+  nl('ok',  '[+] Routing Information:');
+  blank();
+  host.routes.forEach(function(r){
+    nl('val', '  Destination:        ' + r.dest);
+    nl('val', '  Next Hop:           ' + r.next);
+    nl('val', '  Mask:               ' + r.mask);
+    blank();
+  });
+  nl('ok',  '[+] Processes:');
+  blank();
+  host.procs.forEach(function(p,i){
+    nl('val', '  ' + String(i+1).padStart(3,' ') + '   ' + p);
+  });
+  blank();
+
+  addHosts([target]); addStrings([comm]); mark('enum'); mark('topo'); setPhase('ENUMERATION');
+  setIntel(
+    card('h-gr','⬡ snmp-check — Full Audit',
+      irow('Target', target, 'vb') +
+      irow('Community', comm, 'va') +
+      irow('Interfaces', host.ifaces.length, 'vg') +
+      irow('Routes', host.routes.length, 'vg') +
+      irow('Processes', host.procs.length, 'vg')
+    ) +
+    card('h-or','⬡ Why Use snmp-check',
+      '<strong>snmp-check</strong> is a Ruby-based SNMP auditor that automates the full enumeration workflow in a single command.<br><br>' +
+      'Outputs a clean report covering: system info, network interfaces, routing table, processes, storage, user accounts, and TCP connections.<br><br>' +
+      'Faster than running individual snmpwalk commands — ideal for initial reconnaissance on a new target.'
+    )
+   +
+    defcard(
+      '<strong>Run snmp-check against your own devices</strong> as part of internal auditing — if an attacker can run it and get full output, so can you.<br><br><strong>Periodic SNMP audits</strong> — scheduled snmp-check runs against your estate surface misconfigurations before attackers do.<br><br><strong>Verify SNMP views are enforced</strong> — after hardening, run snmp-check to confirm sensitive OIDs are no longer exposed.'
+    ));
+  setExam(
+    '<strong>snmp-check</strong> is a common tool in CPSA practical assessments.<br><br>' +
+    'Know what it enumerates automatically:<br>' +
+    '<strong>System info</strong> — hostname, OS, contact, location<br>' +
+    '<strong>Network info</strong> — interfaces, IPs, MACs<br>' +
+    '<strong>Routing table</strong> — all routes and next-hops<br>' +
+    '<strong>Processes</strong> — running services<br>' +
+    '<strong>User accounts</strong> — if available via MIB<br>' +
+    '<strong>TCP connections</strong> — active sessions<br><br>' +
+    'Tool is pre-installed on Kali Linux: <code>snmp-check &lt;target&gt; -c &lt;community&gt;</code>'
+  );
+}
+
+// ── braa ───────────────────────────────────────────────────────────
+function cmdBraa(parts, raw) {
+  var comm = 'public';
+  var cm = raw.match(/(\w[\w-]*)@/);
+  if (cm) comm = cm[1];
+
+  // Extract targets — could be a range or single
+  var targets = ['192.168.1.1','192.168.1.2','10.10.0.1','192.168.1.50','192.168.10.5'];
+
+  nl('inf', 'braa ' + comm + '@[network sweep] — mass SNMP scanner');
+  blank();
+
+  var responded = 0;
+  targets.forEach(function(ip){
+    var h = NET[ip];
+    if (h && h.comm.indexOf(comm) !== -1) {
+      nl('ok',  ip + ':' + h.uptime + ':' + h.name);
+      nl('val', ip + ':' + h.desc.substring(0,60) + '...');
+      blank();
+      responded++;
+    } else {
+      nl('dim', ip + ':*TIMEOUT*');
+    }
+  });
+
+  blank();
+  nl('ok',  '[+] ' + responded + '/' + targets.length + ' hosts responded to community "' + comm + '"');
+  nl('dim', '    Elapsed: 0.' + (2+Math.floor(Math.random()*6)) + 's');
+  blank();
+
+  addHosts(targets); addStrings([comm]); mark('disc');
+  setIntel(
+    card('h-gr','⬡ braa — Mass Scanner',
+      irow('Community tested', comm, 'va') +
+      irow('Hosts scanned', targets.length, 'vb') +
+      irow('Hosts responded', responded, 'vg') +
+      irow('Speed','Sub-second sweep','vg')
+    ) +
+    card('h-or','⬡ Why braa Is Different',
+      '<strong>braa</strong> sends queries to all targets simultaneously — no waiting for timeouts.<br><br>' +
+      'On a /24 subnet this can sweep 254 hosts in under a second.<br><br>' +
+      'Ideal for identifying <strong>all SNMP-enabled hosts</strong> on a network before running deeper enumeration.<br><br>' +
+      'Syntax: <code>braa community@host:.oid</code> or pipe a target list.'
+    )
+   +
+    defcard(
+      '<strong>Deploy network access controls</strong> — braa\'s power is sweeping entire subnets. VLANs, ACLs, and 802.1X limit where an attacker can reach from a compromised host.<br><br><strong>Rate-limit SNMP queries</strong> — some network devices support SNMP rate limiting. Unusual query volumes from a single source should trigger an alert.<br><br><strong>Rotate community strings regularly</strong> — even if braa finds one host, rotating strings limits how long that access remains valid.'
+    ));
+  setExam(
+    '<strong>braa</strong> is a mass SNMP scanner — sends parallel requests rather than sequential.<br><br>' +
+    'Key exam point: it trades thoroughness for speed — useful for initial host discovery.<br><br>' +
+    'Comparison:<br>' +
+    '<strong>onesixtyone</strong> — community string brute-force, one host at a time<br>' +
+    '<strong>braa</strong> — fast multi-host sweep, known community string<br>' +
+    '<strong>snmpwalk</strong> — deep enumeration, one host, one community<br>' +
+    '<strong>snmp-check</strong> — automated full audit report, one host'
+  );
+}
+
+// ── snmpset ────────────────────────────────────────────────────────
+function cmdSnmpSet(parts, raw) {
+  var target = getIP(raw);
+  var host = NET[target];
+  if (!host) { nl('err','No route to host: ' + target); blank(); return; }
+
+  var comm = getComm(raw);
+  // snmpset requires write community
+  if (!host.comm.length) { nl('err','Timeout: No Response from ' + target); blank(); return; }
+
+  var hasWrite = host.comm.indexOf('private') !== -1 || host.comm.indexOf('backup-mgmt') !== -1;
+  if (!hasWrite || (comm !== 'private' && comm !== 'backup-mgmt')) {
+    nl('err', 'Error in packet.');
+    nl('err', 'Reason: noSuchName (there is no such variable name in this MIB.)');
+    nl('dim', '');
+    nl('dim', 'Community string "' + comm + '" does not have write access.');
+    nl('dim', 'Use the private or write community string to set OIDs.');
+    blank(); return;
+  }
+
+  // Parse what they're setting
+  var rl = raw.toLowerCase();
+  var oidSet = 'sysLocation.0';
+  var newVal = '"Pwned by Red Team"';
+  if (rl.indexOf('sysloc') !== -1) { oidSet = 'sysLocation.0'; newVal = '"Attacker Controlled"'; }
+  else if (rl.indexOf('sysname') !== -1) { oidSet = 'sysName.0'; newVal = '"OWNED"'; }
+  else if (rl.indexOf('syscon') !== -1) { oidSet = 'sysContact.0'; newVal = '"attacker@evil.com"'; }
+
+  nl('inf', 'Writing to ' + target + ' using community "' + comm + '"...');
+  blank();
+  nl('ok', 'SNMPv2-MIB::' + oidSet + ' = STRING: ' + newVal);
+  blank();
+  nl('err', '[!] Device configuration modified successfully');
+  nl('dim', '    This is a WRITE operation — change persists on the device');
+  blank();
+
+  addHosts([target]); setPhase('WRITE OPS');
+  setIntel(
+    card('h-re','⚠ WRITE ACCESS — Device Modified',
+      irow('Target', target, 'vb') +
+      irow('Community used', comm, 'vr') +
+      irow('OID written', oidSet, 'vr') +
+      irow('New value', newVal, 'vr') +
+      irow('Access level', 'READ-WRITE', 'vr')
+    ) +
+    card('h-or','⬡ What snmpset Can Do',
+      'With write access you can modify:<br><br>' +
+      '→ <strong>Routing tables</strong> — redirect traffic through attacker-controlled hops<br>' +
+      '→ <strong>Interface shutdown</strong> — disable network segments (DoS)<br>' +
+      '→ <strong>Community strings</strong> — lock out the admin, persist access<br>' +
+      '→ <strong>SNMP trap destination</strong> — redirect alerts to attacker<br>' +
+      '→ <strong>System info</strong> — cover tracks, modify asset inventory'
+    )
+   +
+    defcard(
+      '<strong>Never expose write community strings (private)</strong> — if SNMP write is needed, restrict it to one specific management host IP with an ACL.<br><br><strong>Prefer SNMPv3 USM with authPriv</strong> — removes the concept of community strings entirely, replaces with user-based auth with AES encryption.<br><br><strong>Audit SNMP write access regularly</strong> — if write is configured, ensure it\'s documented and monitored. Unexpected snmpset activity is an incident.'
+    ));
+  setExam(
+    '<strong>snmpset</strong> requires a <strong>read-write community string</strong> (typically <code>private</code>).<br><br>' +
+    'OID type flags used with snmpset:<br>' +
+    '<strong>s</strong> = string &nbsp; <strong>i</strong> = integer &nbsp; <strong>a</strong> = IP address<br>' +
+    '<strong>t</strong> = timeticks &nbsp; <strong>o</strong> = OID &nbsp; <strong>x</strong> = hex<br><br>' +
+    'Example syntax: <code>snmpset -v2c -c private &lt;target&gt; sysLocation.0 s "value"</code><br><br>' +
+    'CPSA expects you to understand that <strong>write access = configuration control</strong> — not just data read.'
+  );
+}
+
+// ── msfconsole ─────────────────────────────────────────────────────
+function cmdMsf(parts, raw) {
+  var rl = raw.toLowerCase();
+  var isEnum  = rl.indexOf('snmp_enum')  !== -1;
+  var isLogin = rl.indexOf('snmp_login') !== -1;
+  var target  = getIP(raw) || STATE.target;
+  var host    = NET[target];
+
+  if (!isEnum && !isLogin) {
+    nl('inf', 'msf6 > ');
+    nl('dim', 'Usage examples:');
+    nl('val', '  msfconsole -x "use auxiliary/scanner/snmp/snmp_enum; set RHOSTS ' + target + '; run"');
+    nl('val', '  msfconsole -x "use auxiliary/scanner/snmp/snmp_login; set RHOSTS ' + target + '; run"');
+    blank(); return;
+  }
+
+  if (isLogin) {
+    nl('dim', '[*] Initializing the Metasploit Framework...');
+    blank();
+    nl('inf', 'msf6 > use auxiliary/scanner/snmp/snmp_login');
+    nl('inf', 'msf6 auxiliary(scanner/snmp/snmp_login) > set RHOSTS ' + target);
+    nl('val', 'RHOSTS => ' + target);
+    nl('inf', 'msf6 auxiliary(scanner/snmp/snmp_login) > run');
+    blank();
+    nl('dim', '[*] ' + target + ' - Starting SNMP probe');
+
+    if (host && host.comm.length) {
+      host.comm.forEach(function(c){
+        nl('ok', '[+] ' + target + ':161 - Community string: \'' + c + '\' (Access level: ' + (c==='public'?'read-only':'read-write') + ')');
+      });
+      nl('dim', '[*] Scanned 1 of 1 hosts (' + target + ')');
+      nl('ok', '[*] Auxiliary module execution completed');
+    } else {
+      nl('err', '[-] ' + target + ':161 - No response');
+      nl('dim', '[*] Auxiliary module execution completed');
+    }
+    blank();
+    addHosts([target]);
+    if (host && host.comm.length) {
+      addStrings(host.comm); mark('comm');
+      setIntel(
+        card('h-gr','⬡ MSF snmp_login — Strings Found',
+          host.comm.map(function(c){
+            return irow(c, c==='public'?'read-only':'read-write', c==='public'?'va':'vr');
+          }).join('')
+        ) +
+        card('h-or','⬡ Why Use Metasploit Here',
+          '<strong>snmp_login</strong> automates community string brute-forcing with the full Metasploit wordlist.<br><br>' +
+          'Integrates findings directly into the MSF database — discovered strings are available to other modules.<br><br>' +
+          'Supports scanning entire subnets: <code>set RHOSTS 192.168.1.0/24</code>'
+        )
+      );
+      setExam(
+        'Metasploit\'s <strong>auxiliary/scanner/snmp/snmp_login</strong> brute-forces SNMP community strings.<br><br>' +
+        'Key MSF concepts for CPSA:<br>' +
+        '<strong>auxiliary modules</strong> — no payload, no shell — used for scanning and enumeration<br>' +
+        '<strong>RHOSTS</strong> — target IP, range, or CIDR block<br>' +
+        '<strong>THREADS</strong> — parallel scanning speed<br><br>' +
+        'Findings stored in <code>creds</code> database — reusable across the engagement.'
+      );
+    }
+    return;
+  }
+
+  // snmp_enum
+  if (!host || !host.comm.length) {
+    nl('dim', '[*] Initializing the Metasploit Framework...');
+    blank();
+    nl('inf', 'msf6 > use auxiliary/scanner/snmp/snmp_enum');
+    nl('inf', 'msf6 auxiliary(scanner/snmp/snmp_enum) > set RHOSTS ' + target);
+    nl('val', 'RHOSTS => ' + target);
+    nl('inf', 'msf6 auxiliary(scanner/snmp/snmp_enum) > run');
+    blank();
+    nl('err', '[-] ' + target + ':161 - SNMP service down or community string rejected');
+    nl('dim', '[*] Auxiliary module execution completed');
+    blank(); return;
+  }
+
+  nl('dim', '[*] Initializing the Metasploit Framework...');
+  blank();
+  nl('inf', 'msf6 > use auxiliary/scanner/snmp/snmp_enum');
+  nl('inf', 'msf6 auxiliary(scanner/snmp/snmp_enum) > set RHOSTS ' + target);
+  nl('val', 'RHOSTS => ' + target);
+  nl('inf', 'msf6 auxiliary(scanner/snmp/snmp_enum) > run');
+  blank();
+  nl('dim', '[*] ' + target + ':161 - Starting SNMP enumeration');
+  blank();
+  nl('ok',  '[*] System information:');
+  nl('val', '  Host IP:          ' + target);
+  nl('val', '  Hostname:         ' + host.name);
+  nl('val', '  Description:      ' + host.desc.substring(0,70));
+  nl('val', '  Contact:          ' + host.contact);
+  nl('val', '  Location:         ' + host.loc);
+  nl('val', '  Uptime:           ' + host.uptime);
+  blank();
+  nl('ok',  '[*] Network information:');
+  host.ifaces.slice(0,3).forEach(function(f){
+    nl('val', '  [' + f.i + '] ' + f.name + (f.ip !== 'N/A' ? ' / ' + f.ip : '') + ' / ' + f.mac + ' [' + f.st + ']');
+  });
+  blank();
+  nl('ok',  '[*] Routing table:');
+  host.routes.slice(0,4).forEach(function(r){
+    nl('val', '  ' + r.dest + '/' + r.mask + ' via ' + r.next);
+  });
+  blank();
+  nl('ok',  '[*] Processes:');
+  host.procs.forEach(function(p,i){
+    nl('val', '  [' + (i+1) + '] ' + p);
+  });
+  blank();
+  nl('ok',  '[+] Scanned ' + target + ' successfully');
+  nl('dim', '[*] Auxiliary module execution completed');
+  blank();
+
+  addHosts([target]); mark('enum'); mark('topo'); setPhase('ENUMERATION');
+  setIntel(
+    card('h-gr','⬡ MSF snmp_enum — Full Report',
+      irow('Target', target, 'vb') +
+      irow('Hostname', host.name, 'vg') +
+      irow('Interfaces', host.ifaces.length, 'vg') +
+      irow('Routes', host.routes.length, 'vg') +
+      irow('Processes', host.procs.length, 'vg')
+    ) +
+    card('h-or','⬡ MSF vs Manual Tools',
+      '<strong>snmp_enum</strong> wraps the full enumeration into one module — equivalent to running snmpwalk across multiple MIB trees simultaneously.<br><br>' +
+      'Stores all findings in the Metasploit database — searchable and usable by other modules.<br><br>' +
+      'On larger engagements, MSF modules chain better than manual tools when you need to pivot.'
+    )
+   +
+    defcard(
+      '<strong>Deploy an IDS/IPS with SNMP signatures</strong> — Metasploit\'s snmp_enum module generates characteristic traffic patterns that IDS rules can detect.<br><br><strong>Centralise SNMP logging</strong> — all SNMP queries should log to a SIEM. Failed community string attempts are a detection signal.<br><br><strong>Segment your management network</strong> — Metasploit can only scan what it can reach. Proper network segmentation limits the blast radius.'
+    ));
+  setExam(
+    'Metasploit\'s <strong>auxiliary/scanner/snmp/snmp_enum</strong> performs full SNMP enumeration.<br><br>' +
+    'Know the difference between MSF module types for CPSA:<br>' +
+    '<strong>auxiliary</strong> — scanning, enumeration, no payload (snmp_enum, snmp_login)<br>' +
+    '<strong>exploit</strong> — delivers a payload to gain execution<br>' +
+    '<strong>post</strong> — runs after exploitation<br><br>' +
+    'SNMP modules are <em>auxiliary</em> — they enumerate, they don\'t exploit.'
+  );
+}
+
+// ── snmptrap (read-only demo) ──────────────────────────────────────
+function cmdSnmpTrap(parts, raw) {
+  var target = getIP(raw);
+  var host = NET[target];
+  if (!host || !host.comm.length) {
+    nl('err','Timeout: No Response from ' + target); blank(); return;
+  }
+  nl('inf', 'Enumerating SNMP trap configuration on ' + target + '...');
+  blank();
+  nl('val', 'SNMPv2-MIB::snmpTrapOID.0 = OID: SNMPv2-MIB::coldStart');
+  nl('val', 'SNMP-NOTIFICATION-MIB::snmpNotifyTable:');
+  nl('val', '  snmpNotifyName.0    = STRING: "default"');
+  nl('val', '  snmpNotifyTag.0     = STRING: "default"');
+  nl('val', '  snmpNotifyType.0    = INTEGER: trap(1)');
+  nl('dim', '');
+  nl('ok',  'SNMP-TARGET-MIB::snmpTargetAddrTable:');
+  nl('val', '  snmpTargetAddrName.1      = STRING: "traphost"');
+  nl('err', '  snmpTargetAddrTDomain.1   = OID: snmpUDPDomain');
+  nl('err', '  snmpTargetAddrTAddress.1  = STRING: 192.168.1.100:162  ← TRAP RECEIVER');
+  nl('val', '  snmpTargetAddrRowStatus.1 = INTEGER: active(1)');
+  blank();
+  nl('dim', '  Trap community: public');
+  blank();
+
+  addHosts([target]);
+  setIntel(
+    card('h-am','⬡ Trap Receiver Identified',
+      irow('Trap destination','192.168.1.100:162','vr') +
+      irow('Protocol','UDP/162 (SNMP traps)','vb') +
+      irow('Trap version','v2c','va') +
+      irow('Trigger','Device events, link state changes','vb')
+    ) +
+    card('h-or','⬡ Offensive Value of Trap Config',
+      'Trap receiver IP reveals a <strong>management host</strong> — likely a SIEM, NMS, or monitoring server.<br><br>' +
+      'This is a high-value pivot target — management systems often have broad network visibility.<br><br>' +
+      'With write access (<code>snmpset</code>), you can <strong>redirect traps to an attacker-controlled host</strong> — silencing alerts from the defender\'s monitoring system.'
+    )
+   +
+    defcard(
+      '<strong>Restrict trap receivers to known management hosts</strong> — use SNMP target ACLs so trap data only goes to authorised destinations.<br><br><strong>Use SNMPv3 Inform (not Trap)</strong> — Informs are acknowledged, and with authPriv mode the notification data is encrypted and authenticated.<br><br><strong>Monitor for trap receiver changes</strong> — an attacker with write access may redirect traps. Alert on changes to snmpTargetAddrTable.'
+    ));
+  setExam(
+    '<strong>SNMP traps</strong> are unsolicited notifications sent from a device to a trap receiver (manager).<br><br>' +
+    'CPSA exam points:<br>' +
+    '<strong>Trap</strong> (v1) — one-way notification, no acknowledgement<br>' +
+    '<strong>Inform</strong> (v2c/v3) — acknowledged notification<br>' +
+    '<strong>UDP/162</strong> — the port traps are sent TO (manager listens here)<br>' +
+    '<strong>UDP/161</strong> — the port devices listen on (for GET/SET queries)<br><br>' +
+    'Trap data is also unencrypted in v1/v2c — capturable on the wire.'
+  );
+}
+
+// ── DEFENCE CARD HELPER ────────────────────────────────────────────
+function defcard(bodyHtml) {
+  return '<div class="icard"><div class="icard-h h-gr">🛡 Defence &amp; Remediation</div><div class="icard-b">' + bodyHtml + '</div></div>';
+}
+
+// ── snmp-enum ──────────────────────────────────────────────────────
+function cmdSnmpEnum(parts, raw) {
+  var ipM = raw.match(/\b(\d{1,3}(?:\.\d{1,3}){3})\b/);
+  var target = ipM ? ipM[1] : STATE.target;
+  var tokens = raw.trim().split(/\s+/);
+  var comm = 'public';
+  for (var i = 1; i < tokens.length; i++) {
+    if (tokens[i] === '-c' && tokens[i+1]) { comm = tokens[++i]; }
+    else if (!/^-/.test(tokens[i]) && !/^\d{1,3}\.\d/.test(tokens[i]) && i > 1) { comm = tokens[i]; }
+  }
+  var host = NET[target];
+  if (!host) { nl('err','No route to host: ' + target); blank(); return; }
+  if (!host.comm.length || host.comm.indexOf(comm) === -1) {
+    nl('err','snmp-enum: ' + target + ' — no response or community "' + comm + '" rejected');
+    blank(); return;
+  }
+  nl('inf', 'snmp-enum v1.1 - SNMP Enumerator');
+  nl('dim', 'Copyright (c) 2006 Jonathan Roach <jroach@sec-labs.com>');
+  blank();
+  nl('ok', '[*] System:      ' + host.name);
+  nl('ok', '[*] Hostname:    ' + host.desc.substring(0,65));
+  nl('ok', '[*] Contact:     ' + host.contact);
+  nl('ok', '[*] Location:    ' + host.loc);
+  nl('ok', '[*] Uptime:      ' + host.uptime);
+  blank();
+  nl('inf','[*] Enumerating interfaces...');
+  blank();
+  host.ifaces.forEach(function(f) {
+    nl('val','  Interface #' + f.i + ':  ' + f.name + (f.ip !== 'N/A' ? '  /  ' + f.ip : '') + '  /  ' + f.mac);
+    nl(f.st==='up'?'ok':'err','    Status: ' + f.st);
+    blank();
+  });
+  nl('inf','[*] Enumerating routing info...');
+  blank();
+  host.routes.forEach(function(r) {
+    nl('val','  ' + r.dest + ' / ' + r.mask + '  via ' + r.next + '  [' + r.iface + ']');
+  });
+  blank();
+  nl('inf','[*] Enumerating ARP table...');
+  blank();
+  host.arp.forEach(function(e) {
+    nl('val','  IP: ' + e.ip + '  MAC: ' + e.mac + '  If: ' + e.iface);
+  });
+  blank();
+  nl('inf','[*] Enumerating processes...');
+  blank();
+  host.procs.forEach(function(p,i) {
+    var d = p.toLowerCase().indexOf('telnet')!==-1 || p.toLowerCase().indexOf('tftp')!==-1;
+    nl(d?'err':'val','  [' + (i+1) + '] ' + p + (d ? '  ← cleartext service' : ''));
+  });
+  blank();
+  nl('ok','[*] snmp-enum complete for ' + target);
+  blank();
+  addHosts([target]); addStrings([comm]); mark('enum'); mark('topo'); setPhase('ENUMERATION');
+  setIntel(
+    card('h-gr','⬡ snmp-enum Complete',
+      irow('Target',     target,             'vb') +
+      irow('Community',  comm,               'va') +
+      irow('Interfaces', host.ifaces.length, 'vg') +
+      irow('Routes',     host.routes.length, 'vg') +
+      irow('ARP entries',host.arp.length,    'vg') +
+      irow('Processes',  host.procs.length,  'vg')
+    ) +
+    card('h-or','⬡ snmp-enum vs snmp-check',
+      'Both automate full SNMP enumeration — output format differs:<br><br>' +
+      '<strong>snmp-enum</strong> — Perl-based, section-by-section, enumerates ARP explicitly. Older but widely referenced in CPSA material.<br><br>' +
+      '<strong>snmp-check</strong> — Ruby-based, cleaner layout, also covers user accounts, TCP connections, storage.<br><br>' +
+      'In an engagement run both — they occasionally query different OID branches.'
+    ) +
+    defcard(
+      '<strong>Disable SNMPv1/v2c</strong> — migrate to SNMPv3 with authPriv mode (authentication + encryption).<br><br>' +
+      '<strong>Firewall UDP/161</strong> — restrict SNMP to known management hosts via ACL. Never expose to untrusted segments.<br><br>' +
+      '<strong>Replace default community strings</strong> — never use public/private. Use long randomised strings and rotate them regularly.<br><br>' +
+      '<strong>Restrict MIB views</strong> — use SNMP views to limit which OIDs are readable. Routing tables and ARP cache should not be accessible via SNMP read.'
+    )
+  );
+  setExam(
+    '<strong>snmp-enum</strong> is a Perl-based enumerator — cited alongside snmp-check in CPSA study material.<br><br>' +
+    'Key difference: snmp-enum outputs human-readable sections rather than raw OID strings — faster to parse under exam time pressure.<br><br>' +
+    '<strong>SNMPv3 security modes (must know for CPSA):</strong><br>' +
+    '<strong>noAuthNoPriv</strong> — no authentication, no encryption (same as v1/v2c)<br>' +
+    '<strong>authNoPriv</strong> — authenticated but traffic still cleartext<br>' +
+    '<strong>authPriv</strong> — authenticated + encrypted — the only mode that fully protects SNMP'
+  );
+}
+</script>
+</body>
+</html>
